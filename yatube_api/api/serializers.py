@@ -4,6 +4,10 @@ from rest_framework.relations import SlugRelatedField
 
 from posts.models import Comment, Post, Group, Follow, User
 
+IS_FOLLOW_ERROR_MESSAGE = 'Вы уже подписаны на этого пользователя.'
+
+SELF_FOLLOW_ERROR = 'Вы не можете подписаться на самого себя.'
+
 
 class PostSerializer(serializers.ModelSerializer):
     author = SlugRelatedField(slug_field='username', read_only=True)
@@ -50,10 +54,16 @@ class FollowSerializer(serializers.ModelSerializer):
         model = Follow
         fields = ('user', 'following',)
 
-        validators = [
+        validators = (
             serializers.UniqueTogetherValidator(
                 queryset=Follow.objects.all(),
                 fields=('user', 'following'),
-                message='Вы уже подписаны на этого пользователя.'
-            )
-        ]
+                message=IS_FOLLOW_ERROR_MESSAGE
+            ),
+        )
+
+    def validate(self, data):
+        request = self.context['request']
+        if data['following'] == request.user:
+            raise serializers.ValidationError(SELF_FOLLOW_ERROR)
+        return data

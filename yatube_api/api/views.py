@@ -3,7 +3,6 @@ from rest_framework import filters, mixins, viewsets
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
-from rest_framework import serializers
 
 from posts.models import Group, Post
 
@@ -26,6 +25,8 @@ class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
     permission_classes = (IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly)
     pagination_class = LimitOffsetPagination
+    filter_backends = (filters.SearchFilter, )
+    search_fields = ('author__username', 'group__title')
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -35,7 +36,7 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
 
 class CommentViewSet(viewsets.ModelViewSet):
@@ -46,8 +47,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
 
         post = get_object_or_404(Post, pk=self.kwargs.get('post_id'))
-        new_queryset = post.comments.all()
-        return new_queryset
+        return post.comments.all()
 
     def perform_create(self, serializer):
         post_id = get_object_or_404(Post, pk=self.kwargs.get('post_id'))
@@ -57,9 +57,9 @@ class CommentViewSet(viewsets.ModelViewSet):
 class FollowViewSet(CreateListViewSet):
 
     serializer_class = FollowSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['user__username', 'following__username']
+    permission_classes = (IsAuthenticated,)
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('user__username', 'following__username')
 
     def get_queryset(self):
 
@@ -67,9 +67,4 @@ class FollowViewSet(CreateListViewSet):
         return user.follower.all()
 
     def perform_create(self, serializer):
-        following = serializer.validated_data.get('following')
-        if following == self.request.user:
-            raise serializers.ValidationError(
-                'Вы не можете подписаться на самого себя'
-            )
         serializer.save(user=self.request.user)
